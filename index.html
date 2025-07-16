@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>다코스 골프</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+    input, button { margin: 5px 0; padding: 8px; font-size: 1em; width: 100%; }
+    .card { border: 1px solid #ccc; padding: 10px; margin-top: 10px; border-radius: 8px; }
+    .row { display: flex; gap: 5px; margin-bottom: 5px; }
+    .row input { flex: 1; }
+  </style>
+</head>
+<body>
+  <h1>다코스 골프 조편성 프로그램</h1>
+  <div id="members"></div>
+  <button id="addMember">회원 추가</button>
+  <button id="saveMembers">회원 저장</button>
+  <button id="loadMembers">저장된 회원 불러오기</button>
+  <input type="number" id="groupSize" placeholder="조당 인원 수" />
+  <button id="assignGroups">조편성 하기</button>
+  <button id="calculateRank">순위 계산</button>
+  <button id="saveTournament">대회 기록 저장</button>
+  <div id="results"></div>
+  <div id="ranking" style="margin-top:20px;"></div>
+  <div id="history" style="margin-top:20px;"></div>
+
+<script>
+  const membersDiv = document.getElementById("members");
+  const resultsDiv = document.getElementById("results");
+  const rankingDiv = document.getElementById("ranking");
+  const historyDiv = document.getElementById("history");
+  let storedMembers = JSON.parse(localStorage.getItem("golfMembers") || "[]");
+  let history = [];
+
+  function renderMembers(members) {
+    membersDiv.innerHTML = "";
+    members.forEach((m) => {
+      const div = document.createElement("div");
+      div.className = "row";
+      div.innerHTML = \`
+        <input type="text" placeholder="이름" class="memberName" value="\${m.name}" readonly>
+        <input type="number" placeholder="핸디" class="memberHandicap" value="\${m.handicap}" readonly>
+        <input type="number" placeholder="타수" class="memberScore">
+      \`;
+      membersDiv.appendChild(div);
+    });
+  }
+
+  function getValidMembers() {
+    const names = document.querySelectorAll(".memberName");
+    const hcaps = document.querySelectorAll(".memberHandicap");
+    const scores = document.querySelectorAll(".memberScore");
+    const members = [];
+    for (let i = 0; i < names.length; i++) {
+      const name = names[i].value.trim();
+      if (name) {
+        members.push({ name, handicap: hcaps[i].value, score: scores[i].value });
+      }
+    }
+    return members;
+  }
+
+  function renderHistory() {
+    historyDiv.innerHTML = "<h3>대회 기록</h3>" + history.map(h =>
+      \`<div class="card"><strong>\${h.timestamp}</strong><ul>\${h.players.map(p =>
+        \`<li>\${p.name} - 타수: \${p.score}, 핸디: \${p.handicap}, 넷: \${p.net ?? '-'}</li>\`).join('')}</ul></div>\`
+    ).join('');
+  }
+
+  document.getElementById("addMember").onclick = () => {
+    const name = prompt("이름을 입력하세요:");
+    const handicap = prompt("핸디를 입력하세요:");
+    if (name) {
+      storedMembers.push({ name, handicap });
+      renderMembers(storedMembers);
+    }
+  };
+
+  document.getElementById("saveMembers").onclick = () => {
+    localStorage.setItem("golfMembers", JSON.stringify(storedMembers));
+    alert("회원 정보가 저장되었습니다.");
+  };
+
+  document.getElementById("loadMembers").onclick = () => {
+    storedMembers = JSON.parse(localStorage.getItem("golfMembers") || "[]");
+    renderMembers(storedMembers);
+  };
+
+  document.getElementById("assignGroups").onclick = () => {
+    const names = getValidMembers();
+    const size = parseInt(document.getElementById("groupSize").value);
+    if (!size) return alert("조 인원 수를 입력하세요.");
+    const shuffled = names.sort(() => 0.5 - Math.random());
+    const groups = [];
+    for (let i = 0; i < shuffled.length; i += size) {
+      groups.push(shuffled.slice(i, i + size));
+    }
+    resultsDiv.innerHTML = groups.map((g, i) => 
+      \`<div class="card"><strong>\${i + 1}조</strong><ul>\${g.map(m => \`<li>\${m.name}</li>\`).join('')}</ul></div>\`
+    ).join('');
+  };
+
+  document.getElementById("calculateRank").onclick = () => {
+    const members = getValidMembers().filter(m => m.handicap !== '' && m.score !== '');
+    members.forEach(m => m.net = parseFloat(m.score) - parseFloat(m.handicap));
+    members.sort((a, b) => a.net - b.net);
+    rankingDiv.innerHTML = "<h3>순위</h3><ol>" + members.map(m => \`<li>\${m.name} - 넷스코어: \${m.net}</li>\`).join('') + "</ol>";
+  };
+
+  document.getElementById("saveTournament").onclick = () => {
+    const timestamp = new Date().toLocaleString();
+    const members = getValidMembers().map(m => ({ ...m, net: m.score && m.handicap ? parseFloat(m.score) - parseFloat(m.handicap) : null }));
+    history.unshift({ timestamp, players: members });
+    renderHistory();
+  };
+
+  if (storedMembers.length > 0) renderMembers(storedMembers);
+</script>
+</body>
+</html>
