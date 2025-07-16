@@ -3,10 +3,144 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>다코스 골프 조편성</title>
+  <title>다코스 골프 조편성 프로그램</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; }
+    input, button { margin: 0.25rem; padding: 0.5rem; }
+    .member-list, .grouped-list, .score-inputs, .ranking { margin-top: 1rem; }
+  </style>
 </head>
 <body>
-  <h1>✅ 작동하는 최종 다코스 골프 프로그램입니다</h1>
-  <p>참석자 선택, 조편성, 타수 입력, 순위 계산 기능 포함</p>
+  <h1>다코스 골프 조편성 프로그램</h1>
+
+  <div>
+    <input type="text" id="name" placeholder="이름" />
+    <input type="number" id="handicap" placeholder="핸디" />
+    <button onclick="addMember()">회원 추가</button>
+  </div>
+
+  <div class="member-list">
+    <h3>등록된 회원</h3>
+    <ul id="memberList"></ul>
+    <button onclick="saveMembers()">회원 저장</button>
+    <button onclick="loadMembers()">저장된 회원 불러오기</button>
+  </div>
+
+  <div class="attendees">
+    <h3>참석자 선택</h3>
+    <ul id="attendeeList"></ul>
+  </div>
+
+  <div>
+    <input type="number" id="groupSize" placeholder="조당 인원 수" />
+    <button onclick="grouping()">조편성 하기</button>
+    <ul id="groupedList" class="grouped-list"></ul>
+  </div>
+
+  <div class="score-inputs">
+    <h3>타수 입력</h3>
+    <ul id="scoreInputs"></ul>
+    <button onclick="calculateRanking()">순위 계산</button>
+  </div>
+
+  <div class="ranking">
+    <h3>순위</h3>
+    <ol id="rankingList"></ol>
+    <button onclick="saveTournament()">대회 기록 저장</button>
+  </div>
+
+  <script>
+    let members = [];
+    let attendees = [];
+    let scores = {};
+
+    function addMember() {
+      const name = document.getElementById("name").value.trim();
+      const handicap = parseInt(document.getElementById("handicap").value);
+      if (name && !isNaN(handicap)) {
+        members.push({ name, handicap });
+        renderMembers();
+      }
+    }
+
+    function renderMembers() {
+      const list = document.getElementById("memberList");
+      const attendeeList = document.getElementById("attendeeList");
+      list.innerHTML = "";
+      attendeeList.innerHTML = "";
+      members.forEach((m, i) => {
+        const li = document.createElement("li");
+        li.textContent = `${m.name} (핸디: ${m.handicap})`;
+        list.appendChild(li);
+
+        const ai = document.createElement("li");
+        ai.innerHTML = `<input type="checkbox" id="attendee-${i}" /> ${m.name}`;
+        attendeeList.appendChild(ai);
+      });
+    }
+
+    function saveMembers() {
+      localStorage.setItem("golfMembers", JSON.stringify(members));
+      alert("저장 완료");
+    }
+
+    function loadMembers() {
+      const data = localStorage.getItem("golfMembers");
+      if (data) {
+        members = JSON.parse(data);
+        renderMembers();
+      }
+    }
+
+    function grouping() {
+      attendees = [];
+      members.forEach((m, i) => {
+        const cb = document.getElementById(`attendee-${i}`);
+        if (cb && cb.checked) attendees.push(m);
+      });
+      const size = parseInt(document.getElementById("groupSize").value);
+      const shuffled = attendees.slice().sort(() => Math.random() - 0.5);
+      const grouped = [];
+      while (shuffled.length) grouped.push(shuffled.splice(0, size));
+      const ul = document.getElementById("groupedList");
+      ul.innerHTML = "";
+      grouped.forEach((group, idx) => {
+        const li = document.createElement("li");
+        li.textContent = `${idx + 1}조: ${group.map(g => g.name).join(", ")}`;
+        ul.appendChild(li);
+      });
+
+      const scoreInputs = document.getElementById("scoreInputs");
+      scoreInputs.innerHTML = "";
+      attendees.forEach((a, idx) => {
+        const li = document.createElement("li");
+        li.innerHTML = `${a.name}: <input type="number" id="score-${idx}" placeholder="타수 입력" />`;
+        scoreInputs.appendChild(li);
+      });
+    }
+
+    function calculateRanking() {
+      scores = {};
+      attendees.forEach((a, idx) => {
+        const score = parseInt(document.getElementById(`score-${idx}`).value);
+        if (!isNaN(score)) scores[a.name] = { net: score - a.handicap, score, handicap: a.handicap };
+      });
+      const sorted = Object.entries(scores).sort((a, b) => a[1].net - b[1].net);
+      const rankingList = document.getElementById("rankingList");
+      rankingList.innerHTML = "";
+      sorted.forEach(([name, data]) => {
+        const li = document.createElement("li");
+        li.textContent = `${name} - 총타: ${data.score}, 핸디: ${data.handicap}, 넷: ${data.net}`;
+        rankingList.appendChild(li);
+      });
+    }
+
+    function saveTournament() {
+      const past = JSON.parse(localStorage.getItem("golfTournaments") || "[]");
+      past.push({ date: new Date().toISOString(), result: scores });
+      localStorage.setItem("golfTournaments", JSON.stringify(past));
+      alert("대회 결과 저장 완료!");
+    }
+  </script>
 </body>
 </html>
